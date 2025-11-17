@@ -1,3 +1,5 @@
+// lib/types.ts
+
 export interface Tweet {
   id_str: string
   full_text: string
@@ -30,45 +32,6 @@ export interface SentimentData {
   positiveExamples?: Tweet[]
   neutralExamples?: Tweet[]
   negativeExamples?: Tweet[]
-}
-
-export interface Account {
-  id: string
-  username: string
-  user_id_str: string
-  total_tweets: number
-  followers: number
-  engagement_rate: number
-  sentiment: SentimentData
-  top_tweets: Tweet[]
-  top_hashtags: HashtagData[]
-  word_frequency: WordFrequency[]
-  avg_tweet_length?: number
-  posting_frequency?: number
-  most_active_hour?: number
-}
-
-export interface ComparisonData {
-  disney: Account
-  netflix: Account
-}
-
-export interface TweetRow {
-  conversation_id_str: string
-  id_str: string
-  full_text: string
-  created_at: string
-  favorite_count: string
-  retweet_count: string
-  reply_count: string
-  quote_count: string
-  tweet_url: string
-  user_id_str: string
-  username: string
-  image_url?: string
-  in_reply_to_screen_name?: string
-  lang?: string
-  location?: string
 }
 
 export interface PostingTimeData {
@@ -112,6 +75,29 @@ export interface SocialListeningData {
   timeRange: string
 }
 
+export interface Account {
+  id: string
+  username: string
+  user_id_str: string
+  total_tweets: number
+  followers: number
+  engagement_rate: number
+  sentiment: SentimentData
+  top_tweets: Tweet[]
+  top_hashtags: HashtagData[]
+  word_frequency: WordFrequency[]
+
+  // ⬇️ tambahan supaya sesuai dengan yang dipakai di Dashboard
+  tweets?: number
+  hashtags?: HashtagData[]
+  top_tweet_text?: string
+  top_tweet_engagement?: number
+
+  avg_tweet_length?: number
+  posting_frequency?: number
+  most_active_hour?: number
+}
+
 export interface EnhancedAccount extends Account {
   topics: Topic[]
   socialListening: SocialListeningData
@@ -120,4 +106,27 @@ export interface EnhancedAccount extends Account {
   trends: TrendData[]
   language_distribution: { lang: string; count: number }[]
   location_distribution: { location: string; count: number }[]
+}
+
+export interface ComparisonData {
+  disney: Account
+  netflix: Account
+}
+
+export interface TweetRow {
+  conversation_id_str: string
+  id_str: string
+  full_text: string
+  created_at: string
+  favorite_count: string
+  retweet_count: string
+  reply_count: string
+  quote_count: string
+  tweet_url: string
+  user_id_str: string
+  username: string
+  image_url?: string
+  in_reply_to_screen_name?: string
+  lang?: string
+  location?: string
 }

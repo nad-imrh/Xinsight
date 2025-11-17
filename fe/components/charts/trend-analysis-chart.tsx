@@ -2,32 +2,51 @@
 
 import { TrendData } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { 
-  LineChart, Line, BarChart, Bar, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  ComposedChart,
 } from 'recharts'
 
 interface TrendAnalysisChartProps {
   data: TrendData[]
   title?: string
-  brand?: 'disney' | 'netflix'
+  // ⬅️ DULU: brand?: 'disney' | 'netflix'
+  brand?: string
 }
 
-export function TrendAnalysisChart({ data, title = 'Trend Analysis', brand = 'disney' }: TrendAnalysisChartProps) {
+export function TrendAnalysisChart({
+  data,
+  title = 'Trend Analysis',
+  brand,
+}: TrendAnalysisChartProps) {
   const brandColors = {
     disney: {
-      volume: '#4A9EFF', // Disney blue for tweet volume
-      engagement: '#A78BFA', // Purple for engagement (distinct from blue)
+      volume: '#4A9EFF', // blue
+      engagement: '#A78BFA', // purple
       accent: '#38BDF8',
     },
     netflix: {
-      volume: '#E50914', // Netflix red for tweet volume
-      engagement: '#FB923C', // Orange for engagement (distinct from red)
+      volume: '#E50914', // red
+      engagement: '#FB923C', // orange
       accent: '#F87171',
-    }
-  }
-  
-  const colors = brandColors[brand]
+    },
+  } as const
+
+  // Map brand string (bebas) ke palette yang ada
+  const brandKey: 'disney' | 'netflix' =
+    brand?.toLowerCase().includes('netflix') ? 'netflix' : 'disney'
+
+  const colors = brandColors[brandKey]
 
   if (!data || data.length === 0) {
     return (
@@ -42,8 +61,6 @@ export function TrendAnalysisChart({ data, title = 'Trend Analysis', brand = 'di
     )
   }
 
-  const maxCount = Math.max(...data.map(d => d.count))
-
   return (
     <Card>
       <CardHeader>
@@ -54,30 +71,33 @@ export function TrendAnalysisChart({ data, title = 'Trend Analysis', brand = 'di
         <div className="w-full h-80">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />
-              <XAxis 
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="rgba(148, 163, 184, 0.2)"
+              />
+              <XAxis
                 dataKey="date"
                 tick={{ fontSize: 11, fill: '#94A3B8' }}
                 stroke="#94A3B8"
                 interval={Math.ceil(data.length / 7)}
               />
-              <YAxis 
+              <YAxis
                 yAxisId="left"
                 tick={{ fill: '#94A3B8', fontSize: 11 }}
                 stroke="#94A3B8"
               />
-              <YAxis 
-                yAxisId="right" 
+              <YAxis
+                yAxisId="right"
                 orientation="right"
                 tick={{ fill: '#94A3B8', fontSize: 11 }}
                 stroke="#94A3B8"
               />
-              <Tooltip 
+              <Tooltip
                 contentStyle={{
                   backgroundColor: 'rgba(15, 23, 42, 0.95)',
                   border: '1px solid rgba(148, 163, 184, 0.3)',
                   borderRadius: '8px',
-                  color: '#E2E8F0'
+                  color: '#E2E8F0',
                 }}
               />
               <Legend wrapperStyle={{ color: '#94A3B8' }} />
@@ -103,7 +123,7 @@ export function TrendAnalysisChart({ data, title = 'Trend Analysis', brand = 'di
           </ResponsiveContainer>
         </div>
 
-        {/* Peak Activity Period */}
+        {/* Cards ringkasan */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700">
             <p className="text-xs text-slate-400 mb-2">Total Period</p>
@@ -114,50 +134,62 @@ export function TrendAnalysisChart({ data, title = 'Trend Analysis', brand = 'di
           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700">
             <p className="text-xs text-slate-400 mb-2">Peak Day</p>
             <p className="text-2xl font-bold" style={{ color: colors.volume }}>
-              {data.reduce((max, current) => current.count > max.count ? current : max).date}
+              {data.reduce((max, current) =>
+                current.count > max.count ? current : max,
+              ).date}
             </p>
           </div>
           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700">
             <p className="text-xs text-slate-400 mb-2">Avg Daily Tweets</p>
             <p className="text-2xl font-bold" style={{ color: colors.accent }}>
-              {(data.reduce((sum, d) => sum + d.count, 0) / data.length).toFixed(1)}
+              {(
+                data.reduce((sum, d) => sum + d.count, 0) / data.length
+              ).toFixed(1)}
             </p>
           </div>
           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700">
             <p className="text-xs text-slate-400 mb-2">Peak Engagement</p>
-            <p className="text-2xl font-bold" style={{ color: colors.engagement }}>
-              {Math.max(...data.map(d => d.avgEngagement)).toFixed(1)}
+            <p
+              className="text-2xl font-bold"
+              style={{ color: colors.engagement }}
+            >
+              {Math.max(...data.map((d) => d.avgEngagement)).toFixed(1)}
             </p>
           </div>
         </div>
 
-        {/* Daily Breakdown Chart */}
+        {/* Daily Breakdown */}
         <div>
-          <h4 className="font-semibold text-sm mb-3 text-slate-300">Daily Tweet Distribution</h4>
+          <h4 className="font-semibold text-sm mb-3 text-slate-300">
+            Daily Tweet Distribution
+          </h4>
           <div className="w-full h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.slice(-30)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />
-                <XAxis 
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(148, 163, 184, 0.2)"
+                />
+                <XAxis
                   dataKey="date"
                   tick={{ fontSize: 10, fill: '#94A3B8' }}
                   stroke="#94A3B8"
                   interval={Math.ceil(30 / 7)}
                 />
-                <YAxis 
+                <YAxis
                   tick={{ fill: '#94A3B8', fontSize: 11 }}
                   stroke="#94A3B8"
                 />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{
                     backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     border: '1px solid rgba(148, 163, 184, 0.3)',
                     borderRadius: '8px',
-                    color: '#E2E8F0'
+                    color: '#E2E8F0',
                   }}
                 />
-                <Bar 
-                  dataKey="count" 
+                <Bar
+                  dataKey="count"
                   fill={colors.volume}
                   radius={[8, 8, 0, 0]}
                 />

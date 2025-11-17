@@ -2,129 +2,296 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ComparisonMetrics } from './components/comparison-metrics'
+import {
+  ComparisonMetrics,
+  type ComparisonAccount,
+} from './components/comparison-metrics'
 import { StatsCard } from './components/stats-card'
 import { TweetEngagementChart } from './charts/tweet-engagement-chart'
 import { FollowersGrowthChart } from './charts/followers-growth-chart'
 import { SentimentAnalysisChart } from './charts/sentiment-analysis-chart'
 import { HashtagPerformanceChart } from './charts/hashtag-performance-chart'
-import { TweetSourceChart } from './charts/tweet-source-chart'
 import { TopTweetsTable } from './components/top-tweets-table'
 import { TopicModellingChart } from './charts/topic-modelling-chart'
-import { AudienceInsightsChart } from './charts/audience-insights-chart'
-import { PostingTimeHeatmap } from './charts/posting-time-heatmap'
 import { TrendAnalysisChart } from './charts/trend-analysis-chart'
-import { EngagementAnalysisChart } from './charts/engagement-analysis-chart'
+import {
+  EnhancedAccount,
+  SentimentData,
+  Topic,
+  TrendData,
+  HashtagData,
+} from '@/lib/types'
 
-interface Account {
-  id: string
-  username: string
-  tweets?: number
-  total_tweets?: number
-  followers: number
-  engagement_rate: number
-  sentiment?: { positive: number; negative: number; neutral: number }
-  sentiment_positive?: number
-  sentiment_negative?: number
-  sentiment_neutral?: number
-  top_tweet_text?: string
-  top_tweet_engagement?: number
-  top_tweets?: Array<{ full_text: string; favorite_count: number; retweet_count: number }>
-  hashtags?: Array<{ tag: string; count: number }>
-  top_hashtags?: Array<{ tag: string; count: number }>
-  word_frequency?: Array<{ word: string; count: number }>
-  topics?: Array<{ id: string; label: string; keywords: string[]; weight: number; tweetCount: number }>
-  postingTimes?: Array<{ hour: number; count: number; avgEngagement: number }>
-  engagementMetrics?: { totalEngagement: number; avgEngagementPerTweet: number; likeRate: number; retweetRate: number; replyRate: number; quoteRate: number }
-  trends?: Array<{ date: string; count: number; avgEngagement: number; topHashtags: string[] }>
-  socialListening?: { topMentions: string[]; topHashtags: string[]; topKeywords: string[] }
+interface BackendBrandPayload {
+  brand: {
+    id: string
+    name: string
+    total_tweets: number
+  }
+  analytics: {
+    engagement?: any
+    sentiment?: any
+    topics?: any
+  }
 }
 
 interface DashboardProps {
-  disneyData?: Account
-  netflixData?: Account
+  brands?: BackendBrandPayload[]
 }
 
-export function Dashboard({ disneyData, netflixData }: DashboardProps) {
-  const disney = disneyData || {
-    id: 'disney',
-    username: '@Disney',
-    tweets: 1243,
-    followers: 125400,
-    engagement_rate: 4.8,
-    sentiment_positive: 65,
-    sentiment_negative: 10,
-    sentiment_neutral: 25,
-    top_tweet_text: 'Magical moments await!',
-    top_tweet_engagement: 45000,
-    hashtags: [
-      { tag: '#Disney', count: 450 },
-      { tag: '#Magic', count: 380 },
-      { tag: '#Entertainment', count: 320 },
-      { tag: '#Family', count: 290 }
-    ],
-    word_frequency: [
-      { word: 'magical', count: 245 },
-      { word: 'adventure', count: 198 },
-      { word: 'characters', count: 167 },
-      { word: 'stories', count: 156 }
-    ]
+function toSentimentData(sent: any): SentimentData {
+  if (!sent) {
+    return {
+      positive: 0,
+      neutral: 0,
+      negative: 0,
+    }
   }
 
-  const netflix = netflixData || {
-    id: 'netflix',
-    username: '@netflix',
-    tweets: 1564,
-    followers: 89200,
-    engagement_rate: 5.2,
-    sentiment_positive: 72,
-    sentiment_negative: 8,
-    sentiment_neutral: 20,
-    top_tweet_text: 'New releases every week!',
-    top_tweet_engagement: 52000,
-    hashtags: [
-      { tag: '#Netflix', count: 520 },
-      { tag: '#Binge', count: 410 },
-      { tag: '#Content', count: 345 },
-      { tag: '#Series', count: 312 }
-    ],
-    word_frequency: [
-      { word: 'binge', count: 287 },
-      { word: 'watch', count: 234 },
-      { word: 'series', count: 201 },
-      { word: 'amazing', count: 189 }
-    ]
+  return {
+    positive: sent.positive_pct ?? sent.positive ?? 0,
+    neutral: sent.neutral_pct ?? sent.neutral ?? 0,
+    negative: sent.negative_pct ?? sent.negative ?? 0,
+  }
+}
+
+function convertBackendBrandToEnhancedAccount(
+  payload: BackendBrandPayload,
+): EnhancedAccount {
+  const { brand, analytics } = payload
+  const eng = analytics?.engagement || {}
+  const sent = analytics?.sentiment || {}
+  const topics = analytics?.topics || {}
+
+  const totalTweets = eng.total_tweets ?? brand.total_tweets ?? 0
+  const topTweetsRaw = Array.isArray(eng.top_tweets) ? eng.top_tweets : []
+
+  return {
+    id: brand.id,
+    username: brand.name,
+    user_id_str: brand.id,
+    total_tweets: totalTweets,
+    tweets: totalTweets,
+    followers: 0, // backend belum kirim followers
+    engagement_rate: eng.engagement_rate ?? 0,
+    sentiment: toSentimentData(sent),
+    top_tweets: topTweetsRaw.map((t: any) => ({
+      id_str: t.id_str ?? '',
+      full_text: t.text ?? '',
+      created_at: t.created_at ?? '',
+      favorite_count: t.favorite_count ?? 0,
+      retweet_count: t.retweet_count ?? 0,
+      reply_count: 0,
+      quote_count: 0,
+      tweet_url: '',
+    })),
+    top_hashtags: [],
+    word_frequency: [],
+
+    // alias untuk chart
+    hashtags: [],
+
+    avg_tweet_length: undefined,
+    posting_frequency: undefined,
+    most_active_hour: undefined,
+
+    topics: (topics.topics || []).map(
+      (t: any): Topic => ({
+        id: String(t.id ?? ''),
+        label: t.label ?? '',
+        keywords: t.keywords ?? [],
+        weight: Array.isArray(t.weights) ? t.weights[0] ?? 0 : 0,
+        tweetCount: t.tweet_count ?? 0,
+      }),
+    ),
+    socialListening: {
+      topMentions: [],
+      topHashtags: [],
+      topKeywords: topics.top_keywords ?? [],
+      mentionCount: 0,
+      hashtagCount: 0,
+      timeRange: '',
+    },
+    postingTimes: (eng.posting_hours || []).map((h: any) => ({
+      hour: h.hour ?? 0,
+      day_of_week: 0,
+      count: h.engagement ?? 0,
+      avgEngagement: h.engagement ?? 0,
+    })),
+    engagementMetrics: {
+      totalEngagement: eng.total_engagement ?? 0,
+      avgEngagementPerTweet: eng.avg_engagement ?? 0,
+      engagementRate: eng.engagement_rate ?? 0,
+      likeRate: 0,
+      retweetRate: 0,
+      replyRate: 0,
+      quoteRate: 0,
+    },
+    trends: (eng.trend || []).map(
+      (d: any): TrendData => ({
+        date: d.date ?? '',
+        count: d.engagement ?? 0,
+        avgEngagement: d.engagement ?? 0,
+        topHashtags: [],
+      }),
+    ),
+    language_distribution: [],
+    location_distribution: [],
+  }
+}
+
+// helper buat top tweet engagement (menghindari field yang tidak ada di tipe)
+function calcTopTweetEngagement(acc: EnhancedAccount): number {
+  if (!acc.top_tweets || acc.top_tweets.length === 0) return 0
+  return acc.top_tweets.reduce((max, t) => {
+    const eng =
+      (t.favorite_count ?? 0) +
+      (t.retweet_count ?? 0) +
+      (t.reply_count ?? 0) +
+      (t.quote_count ?? 0)
+    return Math.max(max, eng)
+  }, 0)
+}
+
+export function Dashboard({ brands }: DashboardProps) {
+  // 1. Convert semua brand backend → EnhancedAccount
+  const enhancedAccounts: EnhancedAccount[] = Array.isArray(brands)
+    ? brands.map(convertBackendBrandToEnhancedAccount)
+    : []
+
+  // 2. Fallback dummy kalau belum ada data sama sekali
+  const fallbackA: EnhancedAccount = {
+    id: 'brand_a',
+    username: '@BrandA',
+    user_id_str: 'brand_a',
+    total_tweets: 1000,
+    tweets: 1000,
+    followers: 50000,
+    engagement_rate: 4.5,
+    sentiment: { positive: 60, neutral: 30, negative: 10 },
+    top_tweets: [],
+    top_hashtags: [],
+    word_frequency: [],
+    hashtags: [],
+    avg_tweet_length: undefined,
+    posting_frequency: undefined,
+    most_active_hour: undefined,
+    topics: [],
+    socialListening: {
+      topMentions: [],
+      topHashtags: [],
+      topKeywords: [],
+      mentionCount: 0,
+      hashtagCount: 0,
+      timeRange: '',
+    },
+    postingTimes: [],
+    engagementMetrics: {
+      totalEngagement: 0,
+      avgEngagementPerTweet: 0,
+      engagementRate: 4.5,
+      likeRate: 0,
+      retweetRate: 0,
+      replyRate: 0,
+      quoteRate: 0,
+    },
+    trends: [],
+    language_distribution: [],
+    location_distribution: [],
   }
 
-  const safeDisneyData = disneyData 
-    ? {
-        ...disneyData,
-        hashtags: Array.isArray(disneyData.hashtags) ? disneyData.hashtags : Array.isArray(disneyData.top_hashtags) ? disneyData.top_hashtags : [],
-        word_frequency: Array.isArray(disneyData.word_frequency) ? disneyData.word_frequency : [],
-        total_tweets: disneyData.total_tweets || disneyData.tweets || 0,
-        topics: Array.isArray(disneyData.topics) ? disneyData.topics : [],
-        postingTimes: Array.isArray(disneyData.postingTimes) ? disneyData.postingTimes : [],
-        engagementMetrics: disneyData.engagementMetrics || {},
-        trends: Array.isArray(disneyData.trends) ? disneyData.trends : [],
-        socialListening: disneyData.socialListening || {}
-      }
-    : disney
+  const fallbackB: EnhancedAccount = {
+    id: 'brand_b',
+    username: '@BrandB',
+    user_id_str: 'brand_b',
+    total_tweets: 1500,
+    tweets: 1500,
+    followers: 80000,
+    engagement_rate: 5.1,
+    sentiment: { positive: 70, neutral: 20, negative: 10 },
+    top_tweets: [],
+    top_hashtags: [],
+    word_frequency: [],
+    hashtags: [],
+    avg_tweet_length: undefined,
+    posting_frequency: undefined,
+    most_active_hour: undefined,
+    topics: [],
+    socialListening: {
+      topMentions: [],
+      topHashtags: [],
+      topKeywords: [],
+      mentionCount: 0,
+      hashtagCount: 0,
+      timeRange: '',
+    },
+    postingTimes: [],
+    engagementMetrics: {
+      totalEngagement: 0,
+      avgEngagementPerTweet: 0,
+      engagementRate: 5.1,
+      likeRate: 0,
+      retweetRate: 0,
+      replyRate: 0,
+      quoteRate: 0,
+    },
+    trends: [],
+    language_distribution: [],
+    location_distribution: [],
+  }
 
-  const safeNetflixData = netflixData
-    ? {
-        ...netflixData,
-        hashtags: Array.isArray(netflixData.hashtags) ? netflixData.hashtags : Array.isArray(netflixData.top_hashtags) ? netflixData.top_hashtags : [],
-        word_frequency: Array.isArray(netflixData.word_frequency) ? netflixData.word_frequency : [],
-        total_tweets: netflixData.total_tweets || netflixData.tweets || 0,
-        topics: Array.isArray(netflixData.topics) ? netflixData.topics : [],
-        postingTimes: Array.isArray(netflixData.postingTimes) ? netflixData.postingTimes : [],
-        engagementMetrics: netflixData.engagementMetrics || {},
-        trends: Array.isArray(netflixData.trends) ? netflixData.trends : [],
-        socialListening: netflixData.socialListening || {}
-      }
-    : netflix
+  // 3. Ambil dua brand pertama untuk view utama
+  const accA = enhancedAccounts[0] ?? fallbackA
+  const accB = enhancedAccounts[1] ?? fallbackB
 
-  const isComparison = disneyData && netflixData
+  const safeA = {
+    ...accA,
+    tweets: accA.tweets ?? accA.total_tweets ?? 0,
+    total_tweets: accA.total_tweets ?? accA.tweets ?? 0,
+    followers: accA.followers ?? 0,
+    engagement_rate: accA.engagement_rate ?? 0,
+    hashtags: Array.isArray(accA.hashtags)
+      ? accA.hashtags
+      : Array.isArray(accA.top_hashtags)
+      ? accA.top_hashtags
+      : ([] as HashtagData[]),
+    topics: Array.isArray(accA.topics) ? accA.topics : ([] as Topic[]),
+    trends: Array.isArray(accA.trends) ? accA.trends : ([] as TrendData[]),
+  }
+
+  const safeB = {
+    ...accB,
+    tweets: accB.tweets ?? accB.total_tweets ?? 0,
+    total_tweets: accB.total_tweets ?? accB.tweets ?? 0,
+    followers: accB.followers ?? 0,
+    engagement_rate: accB.engagement_rate ?? 0,
+    hashtags: Array.isArray(accB.hashtags)
+      ? accB.hashtags
+      : Array.isArray(accB.top_hashtags)
+      ? accB.top_hashtags
+      : ([] as HashtagData[]),
+    topics: Array.isArray(accB.topics) ? accB.topics : ([] as Topic[]),
+    trends: Array.isArray(accB.trends) ? accB.trends : ([] as TrendData[]),
+  }
+
+  const hasAtLeastTwoBrands = enhancedAccounts.length >= 2
+  const isComparison = hasAtLeastTwoBrands
+
+  // 4. Data buat kartu comparison (bisa sampai 5 brand, diambil 2 pertama)
+  const comparisonAccounts: ComparisonAccount[] = enhancedAccounts.map((acc) => ({
+    username: acc.username,
+    tweets: acc.total_tweets,
+    followers: acc.followers,
+    engagement_rate: acc.engagement_rate,
+    sentiment_positive: acc.sentiment?.positive ?? 0,
+  }))
+
+  const topEngagementA = calcTopTweetEngagement(safeA)
+
+  // Warna chart: kita pakai "disney style" untuk brand A dan "netflix style" untuk brand B,
+  // terlepas dari nama brand sebenarnya
+  const brandStyleA: 'disney' | 'netflix' = 'disney'
+  const brandStyleB: 'disney' | 'netflix' = 'netflix'
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -132,32 +299,52 @@ export function Dashboard({ disneyData, netflixData }: DashboardProps) {
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div>
             <h1 className="text-4xl font-bold text-white">
-              {isComparison ? 'Disney vs Netflix Twitter Analytics' : 'Twitter Analytics Dashboard'}
+              {isComparison
+                ? `${safeA.username} vs ${safeB.username} Twitter Analytics`
+                : 'Twitter Analytics Dashboard'}
             </h1>
             <p className="text-slate-400 mt-2">
-              {isComparison ? 'Advanced analytics and comparison metrics' : 'Comprehensive performance insights and metrics'}
+              {isComparison
+                ? 'Advanced analytics and comparison metrics'
+                : 'Comprehensive performance insights and metrics'}
             </p>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {isComparison && (
+        {hasAtLeastTwoBrands && (
           <div className="mb-8">
-            <ComparisonMetrics disneyData={disney} netflixData={netflix} />
+            <ComparisonMetrics brands={comparisonAccounts.slice(0, 2)} />
           </div>
         )}
 
         {!isComparison && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatsCard title="Total Followers" value={`${(safeDisneyData.followers / 1000).toFixed(1)}K`} change="+12.5%" />
-            <StatsCard title="Avg. Engagement" value={`${safeDisneyData.engagement_rate}%`} change="+2.1%" />
-            <StatsCard title="Total Tweets" value={(safeDisneyData.total_tweets || 0).toLocaleString()} change="+45" />
-            <StatsCard title="Top Tweet Engagement" value={`${(safeDisneyData.top_tweet_engagement / 1000).toFixed(0)}K`} change="+18.3%" />
+            <StatsCard
+              title="Total Followers"
+              value={`${(safeA.followers / 1000).toFixed(1)}K`}
+              change="+12.5%"
+            />
+            <StatsCard
+              title="Avg. Engagement"
+              value={`${safeA.engagement_rate}%`}
+              change="+2.1%"
+            />
+            <StatsCard
+              title="Total Tweets"
+              value={safeA.total_tweets.toLocaleString()}
+              change="+45"
+            />
+            <StatsCard
+              title="Top Tweet Engagement"
+              value={`${(topEngagementA / 1000).toFixed(1)}K`}
+              change="+18.3%"
+            />
           </div>
         )}
 
-        <Tabs defaultValue={isComparison ? "comparison" : "overview"} className="w-full">
+        <Tabs defaultValue={isComparison ? 'comparison' : 'overview'} className="w-full">
           <TabsList className="grid w-full grid-cols-6 mb-8 bg-slate-900">
             {isComparison ? (
               <>
@@ -182,11 +369,14 @@ export function Dashboard({ disneyData, netflixData }: DashboardProps) {
 
           {isComparison ? (
             <>
+              {/* COMPARISON TAB */}
               <TabsContent value="comparison" className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card className="bg-slate-900 border-slate-800">
                     <CardHeader>
-                      <CardTitle className="text-white">Disney - Engagement Analysis</CardTitle>
+                      <CardTitle className="text-white">
+                        {safeA.username} – Engagement Analysis
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <TweetEngagementChart />
@@ -195,169 +385,114 @@ export function Dashboard({ disneyData, netflixData }: DashboardProps) {
 
                   <Card className="bg-slate-900 border-slate-800">
                     <CardHeader>
-                      <CardTitle className="text-white">Netflix - Engagement Analysis</CardTitle>
+                      <CardTitle className="text-white">
+                        {safeB.username} – Engagement Analysis
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <TweetEngagementChart />
                     </CardContent>
                   </Card>
                 </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card className="bg-slate-900 border-slate-800">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center gap-2">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                        Disney - Top Hashtags
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {(safeDisneyData.hashtags || []).map((h, i) => (
-                          <div key={i} className="flex justify-between items-center">
-                            <span className="text-slate-300">{h.tag}</span>
-                            <div className="flex items-center gap-2">
-                              <div className="w-24 h-2 bg-slate-800 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-blue-500 rounded-full"
-                                  style={{ width: `${(h.count / 520) * 100}%` }}
-                                ></div>
-                              </div>
-                              <span className="text-slate-400 text-sm w-8">{h.count}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-slate-900 border-slate-800">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center gap-2">
-                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                        Netflix - Top Hashtags
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {(safeNetflixData.hashtags || []).map((h, i) => (
-                          <div key={i} className="flex justify-between items-center">
-                            <span className="text-slate-300">{h.tag}</span>
-                            <div className="flex items-center gap-2">
-                              <div className="w-24 h-2 bg-slate-800 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-red-500 rounded-full"
-                                  style={{ width: `${(h.count / 520) * 100}%` }}
-                                ></div>
-                              </div>
-                              <span className="text-slate-400 text-sm w-8">{h.count}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
               </TabsContent>
 
-              <TabsContent value="engagement" className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card className="bg-slate-900 border-slate-800">
-                    <CardHeader>
-                      <CardTitle className="text-white">Disney - Followers Growth</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <FollowersGrowthChart />
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-slate-900 border-slate-800">
-                    <CardHeader>
-                      <CardTitle className="text-white">Netflix - Followers Growth</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <FollowersGrowthChart />
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
+              {/* SENTIMENT TAB */}
               <TabsContent value="sentiment" className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card className="bg-slate-900 border-slate-800">
                     <CardHeader>
-                      <CardTitle className="text-white">Disney - Sentiment Analysis</CardTitle>
+                      <CardTitle className="text-white">
+                        {safeA.username} – Sentiment Analysis
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <SentimentAnalysisChart sentiment={safeDisneyData.sentiment} brand="disney" />
+                      <SentimentAnalysisChart
+                        sentiment={safeA.sentiment}
+                        brand={brandStyleA}
+                      />
                     </CardContent>
                   </Card>
 
                   <Card className="bg-slate-900 border-slate-800">
                     <CardHeader>
-                      <CardTitle className="text-white">Netflix - Sentiment Analysis</CardTitle>
+                      <CardTitle className="text-white">
+                        {safeB.username} – Sentiment Analysis
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <SentimentAnalysisChart sentiment={safeNetflixData.sentiment} brand="netflix" />
+                      <SentimentAnalysisChart
+                        sentiment={safeB.sentiment}
+                        brand={brandStyleB}
+                      />
                     </CardContent>
                   </Card>
                 </div>
               </TabsContent>
 
+              {/* HASHTAGS TAB */}
               <TabsContent value="hashtags" className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card className="bg-slate-900 border-slate-800">
                     <CardHeader>
-                      <CardTitle className="text-white">Disney - Top Hashtags Performance</CardTitle>
+                      <CardTitle className="text-white">
+                        {safeA.username} – Top Hashtags Performance
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <HashtagPerformanceChart hashtags={safeDisneyData.hashtags} brand="disney" />
+                      <HashtagPerformanceChart
+                        hashtags={safeA.hashtags}
+                        brand={brandStyleA}
+                      />
                     </CardContent>
                   </Card>
 
                   <Card className="bg-slate-900 border-slate-800">
                     <CardHeader>
-                      <CardTitle className="text-white">Netflix - Top Hashtags Performance</CardTitle>
+                      <CardTitle className="text-white">
+                        {safeB.username} – Top Hashtags Performance
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <HashtagPerformanceChart hashtags={safeNetflixData.hashtags} brand="netflix" />
+                      <HashtagPerformanceChart
+                        hashtags={safeB.hashtags}
+                        brand={brandStyleB}
+                      />
                     </CardContent>
                   </Card>
                 </div>
               </TabsContent>
 
+              {/* TOPICS TAB */}
               <TabsContent value="topics" className="space-y-6">
-                <div className="grid grid-cols-1 gap-6">
-                  <TopicModellingChart 
-                    topics={safeDisneyData.topics || []} 
-                    title="Disney - Topic Analysis" 
-                    brand="disney"
-                  />
-                  <TopicModellingChart 
-                    topics={safeNetflixData.topics || []} 
-                    title="Netflix - Topic Analysis" 
-                    brand="netflix"
-                  />
-                </div>
+                <TopicModellingChart
+                  topics={safeA.topics}
+                  title={`${safeA.username} – Topic Analysis`}
+                  brand={brandStyleA}
+                />
+                <TopicModellingChart
+                  topics={safeB.topics}
+                  title={`${safeB.username} – Topic Analysis`}
+                  brand={brandStyleB}
+                />
               </TabsContent>
 
+              {/* TRENDS TAB */}
               <TabsContent value="trends" className="space-y-6">
-                <div className="grid grid-cols-1 gap-6">
-                  <TrendAnalysisChart 
-                    data={safeDisneyData.trends || []} 
-                    title="Disney - Trend Analysis" 
-                    brand="disney"
-                  />
-                  <TrendAnalysisChart 
-                    data={safeNetflixData.trends || []} 
-                    title="Netflix - Trend Analysis" 
-                    brand="netflix"
-                  />
-                </div>
+                <TrendAnalysisChart
+                  data={safeA.trends}
+                  title={`${safeA.username} – Trend Analysis`}
+                  brand={brandStyleA}
+                />
+                <TrendAnalysisChart
+                  data={safeB.trends}
+                  title={`${safeB.username} – Trend Analysis`}
+                  brand={brandStyleB}
+                />
               </TabsContent>
             </>
           ) : (
             <>
+              {/* SINGLE BRAND - OVERVIEW */}
               <TabsContent value="overview" className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card className="bg-slate-900 border-slate-800">
@@ -367,19 +502,21 @@ export function Dashboard({ disneyData, netflixData }: DashboardProps) {
                     <CardContent className="space-y-4">
                       <div className="flex justify-between">
                         <span className="text-slate-300">Total Tweets</span>
-                        <span className="text-white font-semibold">{safeDisneyData.tweets.toLocaleString()}</span>
+                        <span className="text-white font-semibold">
+                          {safeA.total_tweets.toLocaleString()}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-300">Followers</span>
-                        <span className="text-white font-semibold">{(safeDisneyData.followers / 1000).toFixed(0)}K</span>
+                        <span className="text-white font-semibold">
+                          {(safeA.followers / 1000).toFixed(0)}K
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-300">Engagement Rate</span>
-                        <span className="text-white font-semibold">{safeDisneyData.engagement_rate}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-300">Top Tweet Engagement</span>
-                        <span className="text-white font-semibold">{(safeDisneyData.top_tweet_engagement / 1000).toFixed(0)}K</span>
+                        <span className="text-white font-semibold">
+                          {safeA.engagement_rate}%
+                        </span>
                       </div>
                     </CardContent>
                   </Card>
@@ -395,6 +532,7 @@ export function Dashboard({ disneyData, netflixData }: DashboardProps) {
                 </div>
               </TabsContent>
 
+              {/* SINGLE BRAND - ENGAGEMENT */}
               <TabsContent value="engagement" className="space-y-6">
                 <Card className="bg-slate-900 border-slate-800">
                   <CardHeader>
@@ -415,41 +553,51 @@ export function Dashboard({ disneyData, netflixData }: DashboardProps) {
                 </Card>
               </TabsContent>
 
+              {/* SINGLE BRAND - SENTIMENT */}
               <TabsContent value="sentiment" className="space-y-6">
                 <Card className="bg-slate-900 border-slate-800">
                   <CardHeader>
                     <CardTitle className="text-white">Sentiment Analysis</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <SentimentAnalysisChart sentiment={safeDisneyData.sentiment} brand="disney" />
+                    <SentimentAnalysisChart
+                      sentiment={safeA.sentiment}
+                      brand={brandStyleA}
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>
 
+              {/* SINGLE BRAND - HASHTAGS */}
               <TabsContent value="hashtags" className="space-y-6">
                 <Card className="bg-slate-900 border-slate-800">
                   <CardHeader>
                     <CardTitle className="text-white">Hashtag Performance</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <HashtagPerformanceChart hashtags={safeDisneyData.hashtags} brand="disney" />
+                    <HashtagPerformanceChart
+                      hashtags={safeA.hashtags}
+                      brand={brandStyleA}
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>
 
+              {/* SINGLE BRAND - TOPICS */}
               <TabsContent value="topics" className="space-y-6">
-                <TopicModellingChart 
-                  topics={safeDisneyData.topics || []} 
-                  title="Topic Modelling Analysis" 
-                  brand="disney"
+                <TopicModellingChart
+                  topics={safeA.topics}
+                  title="Topic Modelling Analysis"
+                  brand={brandStyleA}
                 />
               </TabsContent>
 
+              {/* SINGLE BRAND - TRENDS */}
               <TabsContent value="trends" className="space-y-6">
-                <TrendAnalysisChart 
-                  data={safeDisneyData.trends || []} 
-                  title="Trend Analysis" 
-                  brand="disney"
+                <TrendAnalysisChart
+                  data={safeA.trends}
+                  title="Trend Analysis"
+                  brand={brandStyleA}
                 />
               </TabsContent>
             </>
