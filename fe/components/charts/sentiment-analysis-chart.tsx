@@ -9,7 +9,6 @@ import {
   ResponsiveContainer,
   type PieLabelRenderProps,
 } from 'recharts'
-import { Tweet } from '@/lib/types'
 import {
   Card,
   CardContent,
@@ -18,16 +17,31 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 
+interface SentimentExample {
+  id_str?: string
+  text?: string
+  text_preview?: string
+  engagement?: number
+  favorite_count?: number
+  retweet_count?: number
+  score?: number
+  created_at?: string
+}
+
 interface SentimentAnalysisChartProps {
   sentiment?: {
     positive: number
     neutral: number
     negative: number
-    positiveExamples?: Tweet[]
-    neutralExamples?: Tweet[]
-    negativeExamples?: Tweet[]
+    positive_pct?: number
+    neutral_pct?: number
+    negative_pct?: number
   }
-  // boleh string bebas biar nggak ribet sama brand id
+  examples?: {
+    positive?: SentimentExample[]
+    neutral?: SentimentExample[]
+    negative?: SentimentExample[]
+  }
   brand?: string
 }
 
@@ -38,29 +52,30 @@ const SENTIMENT_COLORS = {
 }
 
 const renderLabel = (props: PieLabelRenderProps) => {
-  // props.name & props.value sudah disediakan Recharts
   return `${props.name}: ${props.value}%`
 }
 
 export function SentimentAnalysisChart({
   sentiment,
-  brand, // sekarang nggak kepake, tapi boleh disimpan buat future styling
+  examples,
+  brand,
 }: SentimentAnalysisChartProps) {
+  // ✅ Gunakan persentase jika ada, fallback ke raw numbers
   const data = sentiment
     ? [
         {
           name: 'Positive',
-          value: sentiment.positive,
+          value: sentiment.positive_pct ?? sentiment.positive,
           fill: SENTIMENT_COLORS.positive,
         },
         {
           name: 'Neutral',
-          value: sentiment.neutral,
+          value: sentiment.neutral_pct ?? sentiment.neutral,
           fill: SENTIMENT_COLORS.neutral,
         },
         {
           name: 'Negative',
-          value: sentiment.negative,
+          value: sentiment.negative_pct ?? sentiment.negative,
           fill: SENTIMENT_COLORS.negative,
         },
       ]
@@ -70,38 +85,53 @@ export function SentimentAnalysisChart({
         { name: 'Negative', value: 10, fill: SENTIMENT_COLORS.negative },
       ]
 
-  const renderExamples = (examples?: Tweet[]) => {
-    if (!examples || examples.length === 0) {
+  // ✅ Render sentiment examples dengan data dari backend
+  const renderExamples = (exampleList?: SentimentExample[], sentimentType?: string) => {
+    if (!exampleList || exampleList.length === 0) {
       return (
         <p className="text-xs text-slate-400 italic">
-          Tidak ada contoh tweet
+          Tidak ada contoh tweet untuk sentimen {sentimentType}
         </p>
       )
     }
 
     return (
       <div className="space-y-2">
-        {examples.map((tweet, idx) => (
+        {exampleList.slice(0, 2).map((example, idx) => (
           <div
-            key={idx}
-            className="text-xs p-2 rounded bg-slate-800/30 border border-slate-700"
+            key={example.id_str || idx}
+            className="text-xs p-2 rounded bg-slate-800/30 border border-slate-700 hover:border-slate-600 transition-colors"
           >
-            <p className="line-clamp-2 text-slate-200">{tweet.full_text}</p>
-            <p className="text-slate-400 mt-1 text-[10px]">
-              {tweet.favorite_count} likes · {tweet.retweet_count} retweets
+            <p className="line-clamp-2 text-slate-200">
+              {example.text_preview || example.text || 'No text available'}
             </p>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-slate-400 text-[10px]">
+                {example.favorite_count ?? 0} likes · {example.retweet_count ?? 0} retweets
+              </p>
+              {example.score !== undefined && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">
+                  Score: {example.score.toFixed(2)}
+                </span>
+              )}
+            </div>
           </div>
         ))}
       </div>
     )
   }
 
+  // ✅ Get persentase untuk display
+  const positivePct = sentiment?.positive_pct ?? sentiment?.positive ?? 0
+  const neutralPct = sentiment?.neutral_pct ?? sentiment?.neutral ?? 0
+  const negativePct = sentiment?.negative_pct ?? sentiment?.negative ?? 0
+
   return (
     <Card className="bg-slate-900 border-slate-800">
       <CardHeader>
         <CardTitle className="text-white">Sentiment Analysis</CardTitle>
         <CardDescription className="text-slate-400">
-          Analisis sentimen dari tweet
+          Analisis sentimen dari tweet dengan contoh
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -140,16 +170,17 @@ export function SentimentAnalysisChart({
             </PieChart>
           </ResponsiveContainer>
 
-          <div className="space-y-4">
+          {/* Examples */}
+          <div className="space-y-4 overflow-y-auto max-h-[300px] pr-2">
             <div>
               <h4 className="text-sm font-semibold mb-2 flex items-center gap-2 text-white">
                 <span
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: SENTIMENT_COLORS.positive }}
                 />
-                Positif ({sentiment?.positive ?? 0}%)
+                Positif ({positivePct.toFixed(1)}%)
               </h4>
-              {renderExamples(sentiment?.positiveExamples)}
+              {renderExamples(examples?.positive, 'positif')}
             </div>
 
             <div>
@@ -158,9 +189,9 @@ export function SentimentAnalysisChart({
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: SENTIMENT_COLORS.neutral }}
                 />
-                Netral ({sentiment?.neutral ?? 0}%)
+                Netral ({neutralPct.toFixed(1)}%)
               </h4>
-              {renderExamples(sentiment?.neutralExamples)}
+              {renderExamples(examples?.neutral, 'netral')}
             </div>
 
             <div>
@@ -169,9 +200,9 @@ export function SentimentAnalysisChart({
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: SENTIMENT_COLORS.negative }}
                 />
-                Negatif ({sentiment?.negative ?? 0}%)
+                Negatif ({negativePct.toFixed(1)}%)
               </h4>
-              {renderExamples(sentiment?.negativeExamples)}
+              {renderExamples(examples?.negative, 'negatif')}
             </div>
           </div>
         </div>

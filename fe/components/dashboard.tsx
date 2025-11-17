@@ -32,6 +32,7 @@ interface BackendBrandPayload {
     engagement?: any
     sentiment?: any
     topics?: any
+    hashtags?: any
   }
 }
 
@@ -63,6 +64,24 @@ function convertBackendBrandToEnhancedAccount(
   const sent = analytics?.sentiment || {}
   const topics = analytics?.topics || {}
 
+  // ✅ FIX: Ambil hashtags dengan benar
+  const hashtagsRaw = analytics?.hashtags || []
+  
+  console.log('🔍 Converting brand:', brand.name)
+  console.log('📊 Raw hashtags data:', hashtagsRaw)
+  
+  // ✅ FIX: Mapping hashtags yang benar
+  const hashtagsList: HashtagData[] = Array.isArray(hashtagsRaw)
+    ? hashtagsRaw.slice(0, 10).map((h: any): HashtagData => ({
+        hashtag: h.hashtag ?? h.tag ?? '',
+        tag: h.hashtag ?? h.tag ?? '',
+        count: h.count ?? 0,
+        engagement: h.total_engagement ?? h.avg_engagement ?? 0,
+      }))
+    : []
+
+  console.log('✅ Mapped hashtags:', hashtagsList)
+
   const totalTweets = eng.total_tweets ?? brand.total_tweets ?? 0
   const topTweetsRaw = Array.isArray(eng.top_tweets) ? eng.top_tweets : []
 
@@ -72,7 +91,7 @@ function convertBackendBrandToEnhancedAccount(
     user_id_str: brand.id,
     total_tweets: totalTweets,
     tweets: totalTweets,
-    followers: 0, // backend belum kirim followers
+    followers: 0,
     engagement_rate: eng.engagement_rate ?? 0,
     sentiment: toSentimentData(sent),
     top_tweets: topTweetsRaw.map((t: any) => ({
@@ -85,12 +104,12 @@ function convertBackendBrandToEnhancedAccount(
       quote_count: 0,
       tweet_url: '',
     })),
-    top_hashtags: [],
+    
+    // ✅ FIX: Hanya satu property hashtags
+    top_hashtags: hashtagsList,
+    hashtags: hashtagsList,
+    
     word_frequency: [],
-
-    // alias untuk chart
-    hashtags: [],
-
     avg_tweet_length: undefined,
     posting_frequency: undefined,
     most_active_hour: undefined,
@@ -106,10 +125,10 @@ function convertBackendBrandToEnhancedAccount(
     ),
     socialListening: {
       topMentions: [],
-      topHashtags: [],
+      topHashtags: hashtagsList.slice(0, 5),
       topKeywords: topics.top_keywords ?? [],
       mentionCount: 0,
-      hashtagCount: 0,
+      hashtagCount: hashtagsList.length,
       timeRange: '',
     },
     postingTimes: (eng.posting_hours || []).map((h: any) => ({
@@ -140,7 +159,6 @@ function convertBackendBrandToEnhancedAccount(
   }
 }
 
-// helper buat top tweet engagement (menghindari field yang tidak ada di tipe)
 function calcTopTweetEngagement(acc: EnhancedAccount): number {
   if (!acc.top_tweets || acc.top_tweets.length === 0) return 0
   return acc.top_tweets.reduce((max, t) => {
@@ -154,12 +172,14 @@ function calcTopTweetEngagement(acc: EnhancedAccount): number {
 }
 
 export function Dashboard({ brands }: DashboardProps) {
-  // 1. Convert semua brand backend → EnhancedAccount
+  console.log('🎯 Dashboard received brands:', brands)
+
   const enhancedAccounts: EnhancedAccount[] = Array.isArray(brands)
     ? brands.map(convertBackendBrandToEnhancedAccount)
     : []
 
-  // 2. Fallback dummy kalau belum ada data sama sekali
+  console.log('✅ Enhanced accounts:', enhancedAccounts)
+
   const fallbackA: EnhancedAccount = {
     id: 'brand_a',
     username: '@BrandA',
@@ -201,6 +221,7 @@ export function Dashboard({ brands }: DashboardProps) {
   }
 
   const fallbackB: EnhancedAccount = {
+    ...fallbackA,
     id: 'brand_b',
     username: '@BrandB',
     user_id_str: 'brand_b',
@@ -209,54 +230,25 @@ export function Dashboard({ brands }: DashboardProps) {
     followers: 80000,
     engagement_rate: 5.1,
     sentiment: { positive: 70, neutral: 20, negative: 10 },
-    top_tweets: [],
-    top_hashtags: [],
-    word_frequency: [],
-    hashtags: [],
-    avg_tweet_length: undefined,
-    posting_frequency: undefined,
-    most_active_hour: undefined,
-    topics: [],
-    socialListening: {
-      topMentions: [],
-      topHashtags: [],
-      topKeywords: [],
-      mentionCount: 0,
-      hashtagCount: 0,
-      timeRange: '',
-    },
-    postingTimes: [],
-    engagementMetrics: {
-      totalEngagement: 0,
-      avgEngagementPerTweet: 0,
-      engagementRate: 5.1,
-      likeRate: 0,
-      retweetRate: 0,
-      replyRate: 0,
-      quoteRate: 0,
-    },
-    trends: [],
-    language_distribution: [],
-    location_distribution: [],
   }
 
-  // 3. Ambil dua brand pertama untuk view utama
   const accA = enhancedAccounts[0] ?? fallbackA
   const accB = enhancedAccounts[1] ?? fallbackB
 
+  // ✅ FIX: Pastikan hashtags tidak di-overwrite
   const safeA = {
     ...accA,
     tweets: accA.tweets ?? accA.total_tweets ?? 0,
     total_tweets: accA.total_tweets ?? accA.tweets ?? 0,
     followers: accA.followers ?? 0,
     engagement_rate: accA.engagement_rate ?? 0,
-    hashtags: Array.isArray(accA.hashtags)
+    hashtags: Array.isArray(accA.hashtags) && accA.hashtags.length > 0
       ? accA.hashtags
-      : Array.isArray(accA.top_hashtags)
+      : Array.isArray(accA.top_hashtags) && accA.top_hashtags.length > 0
       ? accA.top_hashtags
-      : ([] as HashtagData[]),
-    topics: Array.isArray(accA.topics) ? accA.topics : ([] as Topic[]),
-    trends: Array.isArray(accA.trends) ? accA.trends : ([] as TrendData[]),
+      : [],
+    topics: Array.isArray(accA.topics) ? accA.topics : [],
+    trends: Array.isArray(accA.trends) ? accA.trends : [],
   }
 
   const safeB = {
@@ -265,19 +257,25 @@ export function Dashboard({ brands }: DashboardProps) {
     total_tweets: accB.total_tweets ?? accB.tweets ?? 0,
     followers: accB.followers ?? 0,
     engagement_rate: accB.engagement_rate ?? 0,
-    hashtags: Array.isArray(accB.hashtags)
+    hashtags: Array.isArray(accB.hashtags) && accB.hashtags.length > 0
       ? accB.hashtags
-      : Array.isArray(accB.top_hashtags)
+      : Array.isArray(accB.top_hashtags) && accB.top_hashtags.length > 0
       ? accB.top_hashtags
-      : ([] as HashtagData[]),
-    topics: Array.isArray(accB.topics) ? accB.topics : ([] as Topic[]),
-    trends: Array.isArray(accB.trends) ? accB.trends : ([] as TrendData[]),
+      : [],
+    topics: Array.isArray(accB.topics) ? accB.topics : [],
+    trends: Array.isArray(accB.trends) ? accB.trends : [],
   }
+
+  console.log('🎯 Safe accounts hashtags:', {
+    brandA: safeA.username,
+    hashtagsA: safeA.hashtags,
+    brandB: safeB.username,
+    hashtagsB: safeB.hashtags,
+  })
 
   const hasAtLeastTwoBrands = enhancedAccounts.length >= 2
   const isComparison = hasAtLeastTwoBrands
 
-  // 4. Data buat kartu comparison (bisa sampai 5 brand, diambil 2 pertama)
   const comparisonAccounts: ComparisonAccount[] = enhancedAccounts.map((acc) => ({
     username: acc.username,
     tweets: acc.total_tweets,
@@ -287,9 +285,6 @@ export function Dashboard({ brands }: DashboardProps) {
   }))
 
   const topEngagementA = calcTopTweetEngagement(safeA)
-
-  // Warna chart: kita pakai "disney style" untuk brand A dan "netflix style" untuk brand B,
-  // terlepas dari nama brand sebenarnya
   const brandStyleA: 'disney' | 'netflix' = 'disney'
   const brandStyleB: 'disney' | 'netflix' = 'netflix'
 
@@ -369,13 +364,12 @@ export function Dashboard({ brands }: DashboardProps) {
 
           {isComparison ? (
             <>
-              {/* COMPARISON TAB */}
               <TabsContent value="comparison" className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card className="bg-slate-900 border-slate-800">
                     <CardHeader>
                       <CardTitle className="text-white">
-                        {safeA.username} – Engagement Analysis
+                        {safeA.username} — Engagement Analysis
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -386,7 +380,7 @@ export function Dashboard({ brands }: DashboardProps) {
                   <Card className="bg-slate-900 border-slate-800">
                     <CardHeader>
                       <CardTitle className="text-white">
-                        {safeB.username} – Engagement Analysis
+                        {safeB.username} — Engagement Analysis
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -396,13 +390,12 @@ export function Dashboard({ brands }: DashboardProps) {
                 </div>
               </TabsContent>
 
-              {/* SENTIMENT TAB */}
               <TabsContent value="sentiment" className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card className="bg-slate-900 border-slate-800">
                     <CardHeader>
                       <CardTitle className="text-white">
-                        {safeA.username} – Sentiment Analysis
+                        {safeA.username} — Sentiment Analysis
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -416,7 +409,7 @@ export function Dashboard({ brands }: DashboardProps) {
                   <Card className="bg-slate-900 border-slate-800">
                     <CardHeader>
                       <CardTitle className="text-white">
-                        {safeB.username} – Sentiment Analysis
+                        {safeB.username} — Sentiment Analysis
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -429,13 +422,12 @@ export function Dashboard({ brands }: DashboardProps) {
                 </div>
               </TabsContent>
 
-              {/* HASHTAGS TAB */}
               <TabsContent value="hashtags" className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card className="bg-slate-900 border-slate-800">
                     <CardHeader>
                       <CardTitle className="text-white">
-                        {safeA.username} – Top Hashtags Performance
+                        {safeA.username} — Top Hashtags Performance
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -449,7 +441,7 @@ export function Dashboard({ brands }: DashboardProps) {
                   <Card className="bg-slate-900 border-slate-800">
                     <CardHeader>
                       <CardTitle className="text-white">
-                        {safeB.username} – Top Hashtags Performance
+                        {safeB.username} — Top Hashtags Performance
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -462,37 +454,34 @@ export function Dashboard({ brands }: DashboardProps) {
                 </div>
               </TabsContent>
 
-              {/* TOPICS TAB */}
               <TabsContent value="topics" className="space-y-6">
                 <TopicModellingChart
                   topics={safeA.topics}
-                  title={`${safeA.username} – Topic Analysis`}
+                  title={`${safeA.username} — Topic Analysis`}
                   brand={brandStyleA}
                 />
                 <TopicModellingChart
                   topics={safeB.topics}
-                  title={`${safeB.username} – Topic Analysis`}
+                  title={`${safeB.username} — Topic Analysis`}
                   brand={brandStyleB}
                 />
               </TabsContent>
 
-              {/* TRENDS TAB */}
               <TabsContent value="trends" className="space-y-6">
                 <TrendAnalysisChart
                   data={safeA.trends}
-                  title={`${safeA.username} – Trend Analysis`}
+                  title={`${safeA.username} — Trend Analysis`}
                   brand={brandStyleA}
                 />
                 <TrendAnalysisChart
                   data={safeB.trends}
-                  title={`${safeB.username} – Trend Analysis`}
+                  title={`${safeB.username} — Trend Analysis`}
                   brand={brandStyleB}
                 />
               </TabsContent>
             </>
           ) : (
             <>
-              {/* SINGLE BRAND - OVERVIEW */}
               <TabsContent value="overview" className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card className="bg-slate-900 border-slate-800">
@@ -532,7 +521,6 @@ export function Dashboard({ brands }: DashboardProps) {
                 </div>
               </TabsContent>
 
-              {/* SINGLE BRAND - ENGAGEMENT */}
               <TabsContent value="engagement" className="space-y-6">
                 <Card className="bg-slate-900 border-slate-800">
                   <CardHeader>
@@ -553,7 +541,6 @@ export function Dashboard({ brands }: DashboardProps) {
                 </Card>
               </TabsContent>
 
-              {/* SINGLE BRAND - SENTIMENT */}
               <TabsContent value="sentiment" className="space-y-6">
                 <Card className="bg-slate-900 border-slate-800">
                   <CardHeader>
@@ -568,7 +555,6 @@ export function Dashboard({ brands }: DashboardProps) {
                 </Card>
               </TabsContent>
 
-              {/* SINGLE BRAND - HASHTAGS */}
               <TabsContent value="hashtags" className="space-y-6">
                 <Card className="bg-slate-900 border-slate-800">
                   <CardHeader>
@@ -583,7 +569,6 @@ export function Dashboard({ brands }: DashboardProps) {
                 </Card>
               </TabsContent>
 
-              {/* SINGLE BRAND - TOPICS */}
               <TabsContent value="topics" className="space-y-6">
                 <TopicModellingChart
                   topics={safeA.topics}
@@ -592,7 +577,6 @@ export function Dashboard({ brands }: DashboardProps) {
                 />
               </TabsContent>
 
-              {/* SINGLE BRAND - TRENDS */}
               <TabsContent value="trends" className="space-y-6">
                 <TrendAnalysisChart
                   data={safeA.trends}

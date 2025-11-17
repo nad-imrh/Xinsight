@@ -13,11 +13,26 @@ export interface Tweet {
   in_reply_to_screen_name?: string
 }
 
+// ✅ Sentiment Example dari Backend
+export interface SentimentExample {
+  id_str?: string
+  text?: string
+  text_preview?: string
+  engagement?: number
+  favorite_count?: number
+  retweet_count?: number
+  score?: number
+  created_at?: string
+}
+
 export interface HashtagData {
-  tag: string
+  hashtag?: string  // ✅ Tambahkan untuk konsistensi dengan backend
+  tag?: string
   count: number
   engagement?: number
   percentage?: number
+  total_engagement?: number  // ✅ Dari backend
+  avg_engagement?: number    // ✅ Dari backend
 }
 
 export interface WordFrequency {
@@ -29,9 +44,12 @@ export interface SentimentData {
   positive: number
   neutral: number
   negative: number
-  positiveExamples?: Tweet[]
-  neutralExamples?: Tweet[]
-  negativeExamples?: Tweet[]
+  positive_pct?: number  // ✅ Persentase dari backend
+  neutral_pct?: number
+  negative_pct?: number
+  positiveExamples?: SentimentExample[]  // ✅ Contoh tweets
+  neutralExamples?: SentimentExample[]
+  negativeExamples?: SentimentExample[]
 }
 
 export interface PostingTimeData {
@@ -49,6 +67,7 @@ export interface EngagementMetrics {
   retweetRate: number
   replyRate: number
   quoteRate: number
+  followers?: number  // ✅ Followers count
 }
 
 export interface TrendData {
@@ -80,14 +99,14 @@ export interface Account {
   username: string
   user_id_str: string
   total_tweets: number
-  followers: number
+  followers: number  // ✅ Followers dari backend
   engagement_rate: number
   sentiment: SentimentData
   top_tweets: Tweet[]
   top_hashtags: HashtagData[]
   word_frequency: WordFrequency[]
 
-  // ⬇️ tambahan supaya sesuai dengan yang dipakai di Dashboard
+  // tambahan supaya sesuai dengan yang dipakai di Dashboard
   tweets?: number
   hashtags?: HashtagData[]
   top_tweet_text?: string

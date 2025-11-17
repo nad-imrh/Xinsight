@@ -1,7 +1,6 @@
 # app/routers/upload.py
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from typing import List
-from datetime import datetime
 import pandas as pd
 import io
 
@@ -9,28 +8,13 @@ from core.shared import TweetData, extract_brand_from_filename, save_model
 from routers.engagement import compute_engagement_analytics
 from routers.sentiment import compute_sentiment_model
 from routers.topics import compute_topic_model
+from routers.hashtags import compute_hashtag_analysis
 
 router = APIRouter(prefix="/api", tags=["upload"])
 
 
 @router.post("/upload-csv")
 async def upload_csv(file: UploadFile = File(...)):
-    """
-    Upload CSV untuk 1 brand.
-    Brand diambil dari nama file (capitalize), contoh:
-    - disney.csv -> brand_name = "Disney"
-    - netflix.csv -> brand_name = "Netflix"
-
-    Endpoint ini:
-    - Baca CSV
-    - Build TweetData[]
-    - Hitung:
-        * Engagement + trend + jam posting
-        * Sentiment
-        * Topic modelling
-    - Simpan masing-masing model ke .pkl
-    - Return profil lengkap brand
-    """
     try:
         contents = await file.read()
         df = pd.read_csv(io.BytesIO(contents))
@@ -68,14 +52,16 @@ async def upload_csv(file: UploadFile = File(...)):
                 )
             )
 
-        # === Jalankan 3 analitik: Bintang, Nata, Riri ===
+        # === Jalankan analitik: Engagement, Sentiment, Topic, Hashtag ===
         engagement_model = compute_engagement_analytics(brand_id, brand_name, tweets)
         sentiment_model = compute_sentiment_model(brand_id, brand_name, tweets)
         topic_model = compute_topic_model(brand_id, brand_name, tweets)
+        hashtag_model = compute_hashtag_analysis(brand_id, brand_name, tweets)
 
         eng_path = save_model(brand_id, "engagement", engagement_model)
         sent_path = save_model(brand_id, "sentiment", sentiment_model)
         topic_path = save_model(brand_id, "topic", topic_model)
+        hashtag_path = save_model(brand_id, "hashtags", hashtag_model)
 
         return {
             "success": True,
@@ -88,18 +74,16 @@ async def upload_csv(file: UploadFile = File(...)):
                 "engagement": engagement_model["data"],
                 "sentiment": sentiment_model["data"],
                 "topics": topic_model["data"],
+                "hashtags": hashtag_model["data"],
             },
             "models_saved": {
                 "engagement": str(eng_path),
                 "sentiment": str(sent_path),
                 "topic": str(topic_path),
+                "hashtags": str(hashtag_path),
             },
             "message": f"Analisis lengkap untuk brand '{brand_name}' ({len(tweets)} tweets) berhasil diproses",
         }
 
-    except pd.errors.EmptyDataError:
-        raise HTTPException(status_code=400, detail="CSV file is empty")
-    except HTTPException:
-        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing CSV: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -1,5 +1,5 @@
 # app/routers/sentiment.py
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from typing import List, Dict, Any
 from datetime import datetime
 import re
@@ -79,31 +79,47 @@ def compute_sentiment_model(brand_id: str, brand_name: str, tweets: List[TweetDa
         total_compound += compound_score
         engagement = tweet.favorite_count + tweet.retweet_count
 
+        # ✅ Simpan minimal 2 contoh per sentimen (max 5 untuk diversitas)
         if sentiment == "positive":
             sentiment_results["positive"] += 1
             if len(sentiment_results["positive_examples"]) < 5:
                 sentiment_results["positive_examples"].append({
-                    "text": tweet.full_text[:100],
+                    "id_str": tweet.id_str,
+                    "text": tweet.full_text,
+                    "text_preview": tweet.full_text[:150] + "..." if len(tweet.full_text) > 150 else tweet.full_text,
                     "engagement": engagement,
-                    "score": round(compound_score, 3)
+                    "favorite_count": tweet.favorite_count,
+                    "retweet_count": tweet.retweet_count,
+                    "score": round(compound_score, 3),
+                    "created_at": tweet.created_at,
                 })
 
         elif sentiment == "negative":
             sentiment_results["negative"] += 1
             if len(sentiment_results["negative_examples"]) < 5:
                 sentiment_results["negative_examples"].append({
-                    "text": tweet.full_text[:100],
+                    "id_str": tweet.id_str,
+                    "text": tweet.full_text,
+                    "text_preview": tweet.full_text[:150] + "..." if len(tweet.full_text) > 150 else tweet.full_text,
                     "engagement": engagement,
-                    "score": round(compound_score, 3)
+                    "favorite_count": tweet.favorite_count,
+                    "retweet_count": tweet.retweet_count,
+                    "score": round(compound_score, 3),
+                    "created_at": tweet.created_at,
                 })
 
         else:
             sentiment_results["neutral"] += 1
             if len(sentiment_results["neutral_examples"]) < 5:
                 sentiment_results["neutral_examples"].append({
-                    "text": tweet.full_text[:100],
+                    "id_str": tweet.id_str,
+                    "text": tweet.full_text,
+                    "text_preview": tweet.full_text[:150] + "..." if len(tweet.full_text) > 150 else tweet.full_text,
                     "engagement": engagement,
-                    "score": round(compound_score, 3)
+                    "favorite_count": tweet.favorite_count,
+                    "retweet_count": tweet.retweet_count,
+                    "score": round(compound_score, 3),
+                    "created_at": tweet.created_at,
                 })
 
     total = len(tweets) or 1
@@ -181,12 +197,67 @@ def analyze_sentiment_df(df):
 # ============================
 @router.get("/{brand_id}/sentiment")
 async def get_brand_sentiment(brand_id: str):
+    """
+    Ambil sentiment analysis dengan minimal 2 contoh per sentimen
+    """
+    brand_id = brand_id.lower()
     model = load_model(brand_id, "sentiment")
-    return {"success": True, **model}
+    
+    # ✅ Ensure minimal 2 examples per sentiment (slice dari 5 yang disimpan)
+    data = model.get("data", {})
+    
+    return {
+        "success": True,
+        "brand_id": model.get("brand_id"),
+        "brand_name": model.get("brand_name"),
+        "sentiment_distribution": {
+            "positive": data.get("positive", 0),
+            "neutral": data.get("neutral", 0),
+            "negative": data.get("negative", 0),
+            "positive_pct": data.get("positive_pct", 0),
+            "neutral_pct": data.get("neutral_pct", 0),
+            "negative_pct": data.get("negative_pct", 0),
+            "average_compound_score": data.get("average_compound_score", 0),
+        },
+        "sentiment_examples": {
+            "positive": data.get("positive_examples", [])[:2],  # ✅ Min 2 examples
+            "neutral": data.get("neutral_examples", [])[:2],
+            "negative": data.get("negative_examples", [])[:2],
+        },
+        "meta": {
+            "model_type": model.get("model_type"),
+            "analysis_method": model.get("analysis_method"),
+            "created_at": model.get("created_at"),
+        }
+    }
+
+
+# ✅ GET ALL EXAMPLES (untuk debugging atau analisis lebih dalam)
+@router.get("/{brand_id}/sentiment/examples")
+async def get_all_sentiment_examples(brand_id: str, limit: int = 5):
+    """
+    Ambil semua contoh tweets per sentimen (max 5 per kategori)
+    """
+    brand_id = brand_id.lower()
+    model = load_model(brand_id, "sentiment")
+    data = model.get("data", {})
+    
+    return {
+        "success": True,
+        "brand_id": brand_id,
+        "sentiment_examples": {
+            "positive": data.get("positive_examples", [])[:limit],
+            "neutral": data.get("neutral_examples", [])[:limit],
+            "negative": data.get("negative_examples", [])[:limit],
+        }
+    }
 
 
 @router.get("/{brand_id}/sentiment/analyze")
 async def analyze_sentiment_realtime(brand_id: str, text: str):
+    """
+    Analisis sentiment real-time untuk teks tertentu
+    """
     sentiment, compound = get_sentiment_vader(text)
     cleaned = clean_text(text)
 

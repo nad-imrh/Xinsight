@@ -3,13 +3,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 
-from routers import upload, engagement, sentiment, topics, brands
+from routers import upload, engagement, sentiment, topics, brands, hashtags
 
 app = FastAPI(title="X Analytics API", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, batasi ke domain frontend
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,6 +29,8 @@ async def root():
             "/api/brands/{brand_id}/engagement",
             "/api/brands/{brand_id}/sentiment",
             "/api/brands/{brand_id}/topics",
+            "/api/brands/{brand_id}/hashtags",            # <-- Tambahkan ini
+            "/api/brands/{brand_id}/hashtags/trending",  # <-- Dan ini
             "/api/brands/comparison",
             "/api/list-models",
             "/api/load-model/{brand_id}/{model_type}",
@@ -47,6 +49,7 @@ app.include_router(engagement.router)
 app.include_router(sentiment.router)
 app.include_router(topics.router)
 app.include_router(brands.router)
+app.include_router(hashtags.router)   # <-- WAJIB DITAMBAHKAN
 
 
 if __name__ == "__main__":
