@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 from typing import Dict, Any
 import re
 
-from be.core.shared import MODELS_DIR, load_model
+from core.shared import MODELS_DIR, load_model
 
 router = APIRouter(prefix="/api", tags=["brands"])
 
@@ -81,6 +81,7 @@ async def get_brand_profile(brand_id: str):
 
 @router.get("/load-model/{brand_id}/{model_type}")
 async def load_model_endpoint(brand_id: str, model_type: str):
+    brand_id = brand_id.lower()
     """
     Backward-compatible endpoint untuk load model mentah.
     model_type: 'engagement', 'sentiment', 'topic'

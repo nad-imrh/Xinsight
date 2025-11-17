@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 import re
 
-from be.core.shared import TweetData, MODELS_DIR, load_model
+from core.shared import TweetData, MODELS_DIR, load_model
 
 router = APIRouter(prefix="/api/brands", tags=["engagement"])
 
@@ -91,6 +91,7 @@ def compute_engagement_analytics(brand_id: str, brand_name: str, tweets: List[Tw
 
 @router.get("/{brand_id}/engagement")
 async def get_brand_engagement(brand_id: str):
+    brand_id = brand_id.lower()
     """
     Ambil model engagement 1 brand (Netflix sendiri, Disney sendiri)
     """

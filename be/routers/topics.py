@@ -1,75 +1,110 @@
 # app/routers/topics.py
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from typing import List, Dict, Any
 from datetime import datetime
 from collections import Counter
 import re
+import pickle
+import numpy as np
+from pathlib import Path
 
-from be.core.shared import TweetData, load_model
+from core.shared import TweetData, load_model
 
 router = APIRouter(prefix="/api/brands", tags=["topics"])
 
+# Lokasi global LDA model
+GLOBAL_TOPIC_MODEL_PATH = Path("models/global_topic_model.pkl")
+
+
+def preprocess_text(text: str) -> str:
+    """
+    Bersihkan teks untuk input LDA
+    """
+    text = text.lower()
+    text = re.sub(r"http\S+|@\w+|#\w+", " ", text)
+    text = re.sub(r"[^a-zA-Z\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
 
 def compute_topic_model(
-    brand_id: str, brand_name: str, tweets: List[TweetData], num_topics: int = 5
+    brand_id: str, brand_name: str, tweets: List[TweetData], num_topics: int = 10
 ) -> Dict[str, Any]:
-    stop_words = {
-        "the",
-        "is",
-        "at",
-        "which",
-        "on",
-        "a",
-        "an",
-        "and",
-        "or",
-        "but",
-        "in",
-        "with",
-        "to",
-        "for",
-        "of",
-        "as",
-        "by",
-        "that",
-        "this",
-    }
 
-    all_words = []
-    for tweet in tweets:
-        text = tweet.full_text.lower()
-        text = re.sub(r"http\S+|@\w+|#", "", text)
-        words = re.findall(r"\b\w+\b", text)
-        words = [w for w in words if len(w) > 3 and w not in stop_words]
-        all_words.extend(words)
+    # --------------------------------------
+    # 1. Load global LDA model
+    # --------------------------------------
+    if not GLOBAL_TOPIC_MODEL_PATH.exists():
+        raise HTTPException(
+            status_code=500,
+            detail="Global topic model not found. Upload missing: models/global_topic_model.pkl",
+        )
 
-    word_freq = Counter(all_words)
-    top_words = word_freq.most_common(50)
+    with open(GLOBAL_TOPIC_MODEL_PATH, "rb") as f:
+        pipeline = pickle.load(f)
 
-    topics = []
-    topics_dict: Dict[str, List[Dict[str, Any]]] = {}
+    vectorizer = pipeline.named_steps["vectorizer"]
+    lda = pipeline.named_steps["lda"]
 
-    for word, count in top_words:
-        first_letter = word[0]
-        topics_dict.setdefault(first_letter, []).append({"word": word, "weight": count})
+    # --------------------------------------
+    # 2. Preprocess tweets
+    # --------------------------------------
+    clean_texts = [preprocess_text(t.full_text) for t in tweets]
 
-    for i, (letter, words) in enumerate(list(topics_dict.items())[:num_topics]):
-        topic_words = sorted(words, key=lambda x: x["weight"], reverse=True)[:5]
-        topics.append(
+    # Vectorize
+    X = vectorizer.transform(clean_texts)
+
+    # --------------------------------------
+    # 3. Topic distribution per tweet
+    # --------------------------------------
+    topic_distributions = lda.transform(X)
+
+    # Dominant topic ID per tweet
+    dominant_topics = np.argmax(topic_distributions, axis=1)
+    topic_counts = Counter(dominant_topics)
+
+    # --------------------------------------
+    # 4. Extract keywords per topic
+    # --------------------------------------
+    words = vectorizer.get_feature_names_out()
+    topics_output = []
+
+    available_topics = min(num_topics, lda.n_components)
+
+    for topic_idx in range(available_topics):
+        component = lda.components_[topic_idx]
+        top_indices = component.argsort()[::-1][:10]
+
+        keywords = [words[i] for i in top_indices]
+        weights = [float(component[i]) for i in top_indices]
+
+        topics_output.append(
             {
-                "id": i,
-                "label": f"Topic {i + 1}: {' + '.join([w['word'] for w in topic_words[:3]])}",
-                "keywords": [w["word"] for w in topic_words],
-                "weights": [w["weight"] for w in topic_words],
-                "tweet_count": sum(w["weight"] for w in topic_words),
+                "id": topic_idx,
+                "label": f"Topic {topic_idx + 1}: {' + '.join(keywords[:3])}",
+                "keywords": keywords,
+                "weights": weights,
+                "tweet_count": topic_counts.get(topic_idx, 0),
             }
         )
 
+    # --------------------------------------
+    # 5. Filter 5 topik terbesar
+    # (TIDAK diurutkan, urutan original LDA dipertahankan)
+    # --------------------------------------
+    top_5_ids = {topic_id for topic_id, _ in topic_counts.most_common(5)}
+
+    topics_output_filtered = [
+        t for t in topics_output if t["id"] in top_5_ids
+    ]
+
+    # --------------------------------------
+    # 6. Final result
+    # --------------------------------------
     topic_results = {
-        "topics": topics,
+        "topics": topics_output_filtered,
         "total_tweets": len(tweets),
-        "total_unique_words": len(word_freq),
-        "top_keywords": [w for w, c in top_words[:20]],
+        "unique_topics_found": len(topic_counts),
     }
 
     return {
@@ -84,7 +119,7 @@ def compute_topic_model(
 @router.get("/{brand_id}/topics")
 async def get_brand_topics(brand_id: str):
     """
-    Ambil model topik 1 brand
+    Ambil model topik 1 brand (hasil analisis sebelumnya)
     """
     model = load_model(brand_id, "topic")
     return {"success": True, **model}

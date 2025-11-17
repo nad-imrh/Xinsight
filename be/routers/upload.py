@@ -5,10 +5,10 @@ from datetime import datetime
 import pandas as pd
 import io
 
-from be.core.shared import TweetData, extract_brand_from_filename, save_model
-from be.routers.engagement import compute_engagement_analytics
-from be.routers.sentiment import compute_sentiment_model
-from be.routers.topics import compute_topic_model
+from core.shared import TweetData, extract_brand_from_filename, save_model
+from routers.engagement import compute_engagement_analytics
+from routers.sentiment import compute_sentiment_model
+from routers.topics import compute_topic_model
 
 router = APIRouter(prefix="/api", tags=["upload"])
 

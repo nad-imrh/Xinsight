@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 
-from be.routers import upload, engagement, sentiment, topics, brands
+from routers import upload, engagement, sentiment, topics, brands
 
 app = FastAPI(title="X Analytics API", version="3.0.0")
 
