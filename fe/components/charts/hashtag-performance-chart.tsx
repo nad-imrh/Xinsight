@@ -68,13 +68,13 @@ export function HashtagPerformanceChart({ hashtags, brand }: HashtagPerformanceC
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />
           <XAxis 
             dataKey="hashtag" 
-            stroke="#94A3B8" 
-            tick={{ fill: '#94A3B8', fontSize: 12 }}
+            stroke="#FFFFFF"
+            tick={{ fill: "#FFFFFF", fontSize: 12 }}
             angle={-45}
             textAnchor="end"
             height={80}
           />
-          <YAxis stroke="#94A3B8" tick={{ fill: '#94A3B8', fontSize: 12 }} />
+          <YAxis stroke="#FFFFFF" tick={{ fill: '#FFFFFF', fontSize: 12 }} />
           <Tooltip
             contentStyle={{
               backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -83,7 +83,12 @@ export function HashtagPerformanceChart({ hashtags, brand }: HashtagPerformanceC
               color: '#E2E8F0',
             }}
           />
-          <Legend wrapperStyle={{ color: '#94A3B8' }} />
+          <Legend 
+          verticalAlign="top"
+          align="center"
+          wrapperStyle={{ color: '#94A3B8', paddingBottom: 10 }}
+        />
+
           <Bar dataKey="tweets" fill={colors.primary} name="Tweet Count" radius={[4, 4, 0, 0]} />
           <Bar dataKey="engagement" fill={colors.secondary} name="Total Engagement" radius={[4, 4, 0, 0]} />
         </BarChart>
