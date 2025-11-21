@@ -67,7 +67,8 @@ export function TopicModellingChart({
           {/* Bar Chart - Topic Weights */}
           <div className="w-full h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
+              <BarChart data={chartData}
+              margin={{ bottom: 50 }}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="rgba(148, 163, 184, 0.2)"
@@ -77,7 +78,8 @@ export function TopicModellingChart({
                   angle={-45}
                   textAnchor="end"
                   height={80}
-                  tick={{ fontSize: 12, fill: '#94A3B8' }}
+                  
+                  tick={{ fontSize: 12, fill: '#FFFFFF'  }}
                 />
                 <YAxis tick={{ fill: '#94A3B8' }} />
                 <Tooltip
@@ -88,7 +90,15 @@ export function TopicModellingChart({
                     color: '#fff',
                   }}
                 />
-                <Legend wrapperStyle={{ color: '#94A3B8' }} />
+                <Legend
+                verticalAlign="top"
+                align="center"
+                wrapperStyle={{
+                  color: '#94A3B8',
+                  marginBottom: 20,   // kasih jarak biar tidak nabrak chart
+                }}
+              />
+
                 <Bar
                   dataKey="weight"
                   fill={brandColor}
@@ -100,15 +110,16 @@ export function TopicModellingChart({
           </div>
 
           {/* Radar Chart - Topic Distribution */}
-          <div className="w-full h-80">
+          <div className="w-full h-80 mt-6">
+
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={chartData}>
                 <PolarGrid stroke="rgba(148, 163, 184, 0.3)" />
                 <PolarAngleAxis
                   dataKey="name"
-                  tick={{ fontSize: 12, fill: '#94A3B8' }}
+                  tick={{ fontSize: 12, fill: '#FFFFFF'  }}
                 />
-                <PolarRadiusAxis tick={{ fill: '#94A3B8' }} />
+                <PolarRadiusAxis tick={{ fill: '#FFFFFF'  }} />
                 <Radar
                   name="Topic Weight"
                   dataKey="weight"
@@ -124,7 +135,14 @@ export function TopicModellingChart({
                     color: '#fff',
                   }}
                 />
-                <Legend wrapperStyle={{ color: '#94A3B8' }} />
+                <Legend
+                verticalAlign="top"
+                align="center"
+                wrapperStyle={{
+                  color: '#94A3B8',
+                  marginBottom: 20,   // kasih jarak biar tidak nabrak chart
+                }}
+              />
               </RadarChart>
             </ResponsiveContainer>
           </div>
