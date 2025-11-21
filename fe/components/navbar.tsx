@@ -15,7 +15,7 @@ export function Navbar() {
             <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-cyan-500 rounded-lg flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-bold text-white">X Analytics</span>
+            <span className="text-xl font-bold text-white">X Insight</span>
           </Link>
 
           <div className="flex items-center gap-1">
