@@ -17,8 +17,17 @@ export function TweetEngagementChart() {
     <ResponsiveContainer width="100%" height={300}>
       <LineChart data={data} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--color-border))" />
-        <XAxis dataKey="date" stroke="hsl(var(--color-muted-foreground))" />
-        <YAxis stroke="hsl(var(--color-muted-foreground))" />
+        <XAxis
+        dataKey="date"
+        stroke="white"
+        tick={{ fill: "white" }}   // 👉 warna tulisan sumbu X
+      />
+
+      <YAxis
+        stroke="white"
+        tick={{ fill: "white" }}   // 👉 warna tulisan sumbu Y
+      />
+
         <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--color-card))', border: '1px solid hsl(var(--color-border))' }} />
         <Legend />
         <Line type="monotone" dataKey="likes" stroke="hsl(var(--color-chart-1))" strokeWidth={2} />
