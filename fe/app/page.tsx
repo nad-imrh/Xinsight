@@ -55,7 +55,10 @@ export default function Home() {
     return (
       <main className="min-h-screen bg-black">
         {/* Hero Section */}
-        <section className="relative min-h-[80vh] flex items-center justify-center px-6 py-20 overflow-hidden">
+       <section className="relative min-h-screen flex items-center justify-center px-6 py-10 overflow-hidden -mt-10">
+
+
+
           {/* Background effects */}
           <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 via-black to-black"></div>
           
@@ -109,14 +112,18 @@ export default function Home() {
         </section>
 
         {/* Features Section */}
-        <section className="py-20 px-6 bg-gradient-to-b from-black to-slate-950">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-white mb-4">Powerful Analytics Features</h2>
-              <p className="text-slate-400 text-lg">Everything you need to understand your X (Twitter) performance</p>
-            </div>
-          
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <section className="min-h-screen flex justify-center items-center px-6 bg-gradient-to-b from-black to-slate-950">
+
+          <div className="max-w-7xl mx-auto w-full h-full flex flex-col justify-center">
+
+            <div className="text-center mb-10">
+              <h2 className="text-4xl font-bold text-white">Powerful Analytics Features</h2>
+              <p className="text-slate-400 text-lg mt-2">Everything you need to understand your X (Twitter) performance</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+
+
               {[
                 { icon: BarChart3, title: 'Comparison Analytics', desc: 'Compare multiple accounts side-by-side with detailed metrics' },
                 { icon: Heart, title: 'Engagement Tracking', desc: 'Monitor likes, retweets, replies, and quote tweets in real-time' },
@@ -125,25 +132,28 @@ export default function Home() {
                 { icon: TrendingUp, title: 'Trend Detection', desc: 'Identify emerging trends and patterns in your data' },
                 { icon: Clock, title: 'Time Analysis', desc: 'Discover optimal posting times and temporal patterns' },
               ].map((feature, idx) => (
-                <Card key={idx} className="bg-slate-900 border-slate-800 p-6 hover:border-purple-500/50 transition-colors">
-                  <div className="bg-purple-500/10 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                    {React.createElement(feature.icon, { className: "w-6 h-6 text-purple-500" })}
+                <Card key={idx} className="bg-slate-900 border-slate-800 p-4 hover:border-purple-500/50 transition-colors">
+                  <div className="bg-purple-500/10 w-10 h-10 rounded-lg flex items-center justify-center mb-3">
+                  {React.createElement(feature.icon, { className: "w-5 h-5 text-purple-500" })}
                   </div>
-                  <h3 className="text-xl font-semibold text-white mb-2">{feature.title}</h3>
-                  <p className="text-slate-400 text-sm">{feature.desc}</p>
-                </Card>
+                  <h3 className="text-lg font-semibold text-white mb-1">{feature.title}</h3>
+                  <p className="text-slate-400 text-xs">{feature.desc}</p>
+                  </Card>
+
               ))}
             </div>
           </div>
         </section>
 
         {/* CTA Section */}
-        <section className="py-20 px-6">
-          <div className="max-w-4xl mx-auto text-center">
+        <section className="min-h-screen flex items-center justify-center px-6 bg-black">
+          <div className="max-w-4xl mx-auto text-center h-full flex flex-col justify-center">
+
             <h2 className="text-4xl font-bold text-white mb-6">Ready to Unlock Your Insights?</h2>
             <p className="text-slate-400 text-lg mb-8">
               Start analyzing your X (Twitter) data today and discover actionable insights
-            </p>
+              </p>
+
             <Link href="/load-data">
               <Button size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-lg px-12 py-6">
                 Get Started Now
